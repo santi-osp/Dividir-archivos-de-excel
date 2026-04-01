@@ -269,7 +269,7 @@ function downloadPart(part) {
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
   const csvContent = XLSX.utils.sheet_to_csv(ws);
   const blob = new Blob([csvContent], { type: "text/plain;charset=utf-8;" });
-  const safeFileName = `${part.fileName.replace(/\.[^/.]+$/, "")}.ccv`;
+  const safeFileName = `${part.fileName.replace(/\.[^/.]+$/, "")}.csv`;
   triggerDownload(blob, safeFileName);
 }
 
