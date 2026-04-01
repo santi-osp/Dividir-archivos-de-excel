@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Divisor de Excel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-shape bg-shape-1"></div>
+  <div class="bg-shape bg-shape-2"></div>
+
+  <main class="app">
+    <header class="hero">
+      <h1>Divisor de Excel</h1>
+      <p>Sube tu archivo, elige cómo dividirlo y descarga cada parte con nombres en mayúscula.</p>
+    </header>
+
+    <section class="panel upload-panel">
+      <div id="dropZone" class="drop-zone" role="button" tabindex="0" aria-label="Zona para subir archivo Excel">
+        <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" hidden />
+        <div class="drop-icon">⬆</div>
+        <h2>Arrastra y suelta tu Excel aquí</h2>
+        <p>o haz clic para seleccionar un archivo</p>
+      </div>
+      <div id="fileInfo" class="file-info hidden"></div>
+    </section>
+
+    <section class="panel config-panel hidden" id="configPanel">
+      <h2>Configurar división</h2>
+
+      <div class="mode-grid" role="radiogroup" aria-label="Modo de división">
+        <label class="mode-card active">
+          <input type="radio" name="splitMode" value="rows" checked />
+          <strong>Filas por parte</strong>
+          <span>Indica cuántas filas tendrá cada archivo.</span>
+        </label>
+
+        <label class="mode-card">
+          <input type="radio" name="splitMode" value="parts" />
+          <strong>Cantidad de partes</strong>
+          <span>Indica en cuántos archivos quieres dividir.</span>
+        </label>
+
+        <label class="mode-card">
+          <input type="radio" name="splitMode" value="custom-two" />
+          <strong>2 partes personalizadas</strong>
+          <span>Define N filas para parte 1 y N filas para parte 2.</span>
+        </label>
+      </div>
+
+      <div id="rowsMode" class="mode-fields">
+        <label for="rowsPerPart">Filas por parte</label>
+        <input id="rowsPerPart" type="number" min="1" value="100" />
+      </div>
+
+      <div id="partsMode" class="mode-fields hidden">
+        <label for="partsCount">Cantidad de partes</label>
+        <input id="partsCount" type="number" min="2" value="2" />
+      </div>
+
+      <div id="customTwoMode" class="mode-fields hidden two-col">
+        <div>
+          <label for="part1Rows">Filas parte 1</label>
+          <input id="part1Rows" type="number" min="1" value="100" />
+        </div>
+        <div>
+          <label for="part2Rows">Filas parte 2</label>
+          <input id="part2Rows" type="number" min="1" value="100" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="splitBtn" class="btn btn-primary">Dividir archivo</button>
+        <button id="resetBtn" class="btn btn-ghost">Reiniciar</button>
+      </div>
+    </section>
+
+    <section id="resultPanel" class="panel result-panel hidden">
+      <h2>Resultado</h2>
+      <p id="summaryText"></p>
+      <div id="partsList" class="parts-list"></div>
+      <div class="actions">
+        <button id="downloadAllBtn" class="btn btn-primary">Descargar todo</button>
+      </div>
+    </section>
+
+    <section id="messagePanel" class="message hidden" aria-live="polite"></section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
