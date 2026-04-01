@@ -268,16 +268,30 @@ function downloadPart(part) {
   const sheetData = [state.headers, ...part.rows];
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
   const csvContent = XLSX.utils.sheet_to_csv(ws);
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([csvContent], { type: "text/plain;charset=utf-8;" });
+  const safeFileName = `${part.fileName.replace(/\.[^/.]+$/, "")}.ccv`;
+  triggerDownload(blob, safeFileName);
+}
+
+function triggerDownload(blob, fileName) {
+  if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
+    window.navigator.msSaveOrOpenBlob(blob, fileName);
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-
+  anchor.style.display = "none";
   anchor.href = url;
-  anchor.download = `${part.fileName}.ccv`;
+  anchor.setAttribute("download", fileName);
+
   document.body.appendChild(anchor);
   anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    anchor.remove();
+  }, 0);
 }
 
 function buildFileName(baseName, index) {
