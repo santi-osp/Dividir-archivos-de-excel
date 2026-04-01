@@ -4,7 +4,17 @@ const state = {
   headers: [],
   rows: [],
   fileBaseName: "ARCHIVO",
-  parts: []
+  parts: [],
+  compare: {
+    left: {
+      fileName: "",
+      values: []
+    },
+    right: {
+      fileName: "",
+      values: []
+    }
+  }
 };
 
 const excelInput = document.getElementById("excelInput");
@@ -26,6 +36,19 @@ const part2RowsInput = document.getElementById("part2Rows");
 const splitBtn = document.getElementById("splitBtn");
 const resetBtn = document.getElementById("resetBtn");
 const downloadAllBtn = document.getElementById("downloadAllBtn");
+const leftDropZone = document.getElementById("leftDropZone");
+const rightDropZone = document.getElementById("rightDropZone");
+const leftCsvInput = document.getElementById("leftCsvInput");
+const rightCsvInput = document.getElementById("rightCsvInput");
+const leftFileInfo = document.getElementById("leftFileInfo");
+const rightFileInfo = document.getElementById("rightFileInfo");
+const leftSearchInput = document.getElementById("leftSearchInput");
+const rightSearchInput = document.getElementById("rightSearchInput");
+const leftResults = document.getElementById("leftResults");
+const rightResults = document.getElementById("rightResults");
+const leftMatchInfo = document.getElementById("leftMatchInfo");
+const rightMatchInfo = document.getElementById("rightMatchInfo");
+const compareSummary = document.getElementById("compareSummary");
 
 init();
 
@@ -74,7 +97,187 @@ function init() {
     state.parts.forEach((part) => downloadPart(part));
   });
 
+  setupCompareUploader("left");
+  setupCompareUploader("right");
+  leftSearchInput.addEventListener("input", () => renderCompareList("left"));
+  rightSearchInput.addEventListener("input", () => renderCompareList("right"));
+
   updateModeVisibility();
+}
+
+function setupCompareUploader(side) {
+  const zone = side === "left" ? leftDropZone : rightDropZone;
+  const input = side === "left" ? leftCsvInput : rightCsvInput;
+
+  zone.addEventListener("click", () => input.click());
+  zone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      input.click();
+    }
+  });
+
+  input.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleCompareFile(side, file);
+    }
+  });
+
+  zone.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    zone.classList.add("dragover");
+  });
+
+  zone.addEventListener("dragleave", () => {
+    zone.classList.remove("dragover");
+  });
+
+  zone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    zone.classList.remove("dragover");
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      input.files = event.dataTransfer.files;
+      handleCompareFile(side, file);
+    }
+  });
+}
+
+function handleCompareFile(side, file) {
+  if (!/\.csv$/i.test(file.name)) {
+    showError("En la sección de comparación solo se permiten archivos CSV.");
+    return;
+  }
+
+  clearMessage();
+  const reader = new FileReader();
+
+  reader.onload = (event) => {
+    try {
+      const workbook = XLSX.read(event.target.result, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+      const values = data
+        .map((row) => {
+          const value = Array.isArray(row) ? row[0] : row;
+          return String(value ?? "").trim();
+        })
+        .filter((value) => value !== "");
+
+      if (!values.length) {
+        showError("El CSV no contiene datos válidos en la primera columna.");
+        return;
+      }
+
+      state.compare[side].fileName = file.name;
+      state.compare[side].values = values;
+
+      const info = side === "left" ? leftFileInfo : rightFileInfo;
+      info.textContent = `${file.name} | ${values.length} fila(s)`;
+      info.classList.remove("hidden");
+
+      renderCompareList(side);
+      updateCompareSummary();
+    } catch (error) {
+      showError("No se pudo leer el CSV en la sección de comparación.");
+      console.error(error);
+    }
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function renderCompareList(side) {
+  const values = state.compare[side].values;
+  const queryInput = side === "left" ? leftSearchInput : rightSearchInput;
+  const list = side === "left" ? leftResults : rightResults;
+  const info = side === "left" ? leftMatchInfo : rightMatchInfo;
+  const query = queryInput.value.trim();
+  const normalizedQuery = query.toUpperCase();
+
+  const filtered = !normalizedQuery
+    ? values
+    : values.filter((value) => value.toUpperCase().includes(normalizedQuery));
+
+  list.innerHTML = "";
+
+  if (!values.length) {
+    info.textContent = "0 resultados";
+    return;
+  }
+
+  const visible = filtered.slice(0, 500);
+  visible.forEach((value) => {
+    const item = document.createElement("li");
+    appendHighlightedText(item, value, query);
+    list.appendChild(item);
+  });
+
+  if (filtered.length > visible.length) {
+    const extra = document.createElement("li");
+    extra.textContent = `Mostrando ${visible.length} de ${filtered.length} resultados.`;
+    list.appendChild(extra);
+  }
+
+  info.textContent = `${filtered.length} resultado(s) de ${values.length} fila(s)`;
+}
+
+function appendHighlightedText(container, text, query) {
+  if (!query) {
+    container.textContent = text;
+    return;
+  }
+
+  const source = text;
+  const lowerSource = source.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  let cursor = 0;
+  let index = lowerSource.indexOf(lowerQuery, cursor);
+
+  if (index === -1) {
+    container.textContent = text;
+    return;
+  }
+
+  while (index !== -1) {
+    if (index > cursor) {
+      container.appendChild(document.createTextNode(source.slice(cursor, index)));
+    }
+
+    const mark = document.createElement("mark");
+    mark.textContent = source.slice(index, index + query.length);
+    container.appendChild(mark);
+
+    cursor = index + query.length;
+    index = lowerSource.indexOf(lowerQuery, cursor);
+  }
+
+  if (cursor < source.length) {
+    container.appendChild(document.createTextNode(source.slice(cursor)));
+  }
+}
+
+function updateCompareSummary() {
+  const leftValues = state.compare.left.values;
+  const rightValues = state.compare.right.values;
+
+  if (!leftValues.length || !rightValues.length) {
+    compareSummary.textContent = "Carga ambos archivos para ver coincidencias.";
+    return;
+  }
+
+  const leftSet = new Set(leftValues.map((value) => value.toUpperCase()));
+  let commonCount = 0;
+  rightValues.forEach((value) => {
+    if (leftSet.has(value.toUpperCase())) {
+      commonCount += 1;
+    }
+  });
+
+  compareSummary.textContent = `CSV A: ${leftValues.length} filas | CSV B: ${rightValues.length} filas | Coincidencias: ${commonCount}`;
 }
 
 function updateModeVisibility() {

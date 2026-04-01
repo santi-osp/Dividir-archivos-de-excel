@@ -88,10 +88,47 @@
       </div>
     </section>
 
+    <section class="panel compare-panel" id="comparePanel">
+      <h2>Comparar 2 CSV</h2>
+      <p class="compare-subtitle">Ideal para archivos de una sola columna con muchas filas. Sube un CSV en cada lado y busca códigos dentro de cada uno.</p>
+
+      <div class="compare-summary" id="compareSummary">Carga ambos archivos para ver coincidencias.</div>
+
+      <div class="compare-grid">
+        <article class="compare-side">
+          <h3>CSV A</h3>
+          <div id="leftDropZone" class="drop-zone small" role="button" tabindex="0" aria-label="Subir CSV A">
+            <input id="leftCsvInput" type="file" accept=".csv" hidden />
+            <div class="drop-icon">⬆</div>
+            <p>Subir CSV A</p>
+          </div>
+          <div id="leftFileInfo" class="file-info hidden"></div>
+          <label for="leftSearchInput">Buscar código en CSV A</label>
+          <input id="leftSearchInput" type="text" placeholder="Ej: 123456" />
+          <div id="leftMatchInfo" class="match-info">0 resultados</div>
+          <ul id="leftResults" class="result-list"></ul>
+        </article>
+
+        <article class="compare-side">
+          <h3>CSV B</h3>
+          <div id="rightDropZone" class="drop-zone small" role="button" tabindex="0" aria-label="Subir CSV B">
+            <input id="rightCsvInput" type="file" accept=".csv" hidden />
+            <div class="drop-icon">⬆</div>
+            <p>Subir CSV B</p>
+          </div>
+          <div id="rightFileInfo" class="file-info hidden"></div>
+          <label for="rightSearchInput">Buscar código en CSV B</label>
+          <input id="rightSearchInput" type="text" placeholder="Ej: 123456" />
+          <div id="rightMatchInfo" class="match-info">0 resultados</div>
+          <ul id="rightResults" class="result-list"></ul>
+        </article>
+      </div>
+    </section>
+
     <section id="messagePanel" class="message hidden" aria-live="polite"></section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="script.js?v=3"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
