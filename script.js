@@ -265,12 +265,19 @@ function renderResults() {
 }
 
 function downloadPart(part) {
-  const wb = XLSX.utils.book_new();
   const sheetData = [state.headers, ...part.rows];
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
-  XLSX.utils.book_append_sheet(wb, ws, "DATOS");
+  const csvContent = XLSX.utils.sheet_to_csv(ws);
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
 
-  XLSX.writeFile(wb, `${part.fileName}.xlsx`);
+  anchor.href = url;
+  anchor.download = `${part.fileName}.ccv`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }
 
 function buildFileName(baseName, index) {
