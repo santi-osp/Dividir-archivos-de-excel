@@ -5,6 +5,7 @@ const state = {
   rows: [],
   fileBaseName: "ARCHIVO",
   parts: [],
+  pointCuts: [],
   compare: {
     left: {
       fileName: "",
@@ -28,10 +29,16 @@ const partsList = document.getElementById("partsList");
 const rowsMode = document.getElementById("rowsMode");
 const partsMode = document.getElementById("partsMode");
 const customTwoMode = document.getElementById("customTwoMode");
+const pointsMode = document.getElementById("pointsMode");
 const rowsPerPartInput = document.getElementById("rowsPerPart");
 const partsCountInput = document.getElementById("partsCount");
 const part1RowsInput = document.getElementById("part1Rows");
 const part2RowsInput = document.getElementById("part2Rows");
+const pointsCountInput = document.getElementById("pointsCount");
+const pointsBar = document.getElementById("pointsBar");
+const splitPointsSummary = document.getElementById("splitPointsSummary");
+const partsCounters = document.getElementById("partsCounters");
+const evenlyDistributeBtn = document.getElementById("evenlyDistributeBtn");
 
 const splitBtn = document.getElementById("splitBtn");
 const resetBtn = document.getElementById("resetBtn");
@@ -44,11 +51,20 @@ const leftFileInfo = document.getElementById("leftFileInfo");
 const rightFileInfo = document.getElementById("rightFileInfo");
 const leftSearchInput = document.getElementById("leftSearchInput");
 const rightSearchInput = document.getElementById("rightSearchInput");
-const leftResults = document.getElementById("leftResults");
-const rightResults = document.getElementById("rightResults");
+const leftSheetBody = document.getElementById("leftSheetBody");
+const rightSheetBody = document.getElementById("rightSheetBody");
+const leftSheetWrap = document.getElementById("leftSheetWrap");
+const rightSheetWrap = document.getElementById("rightSheetWrap");
 const leftMatchInfo = document.getElementById("leftMatchInfo");
 const rightMatchInfo = document.getElementById("rightMatchInfo");
+const leftStats = document.getElementById("leftStats");
+const rightStats = document.getElementById("rightStats");
 const compareSummary = document.getElementById("compareSummary");
+
+const pointsDragState = {
+  active: false,
+  index: -1
+};
 
 init();
 
@@ -96,13 +112,225 @@ function init() {
   downloadAllBtn.addEventListener("click", () => {
     state.parts.forEach((part) => downloadPart(part));
   });
+  pointsCountInput.addEventListener("input", handlePointsCountChange);
+  evenlyDistributeBtn.addEventListener("click", distributePointsEvenly);
+  window.addEventListener("resize", () => {
+    if (state.rows.length && getSelectedMode() === "points") {
+      renderPointsBar();
+    }
+  });
 
   setupCompareUploader("left");
   setupCompareUploader("right");
   leftSearchInput.addEventListener("input", () => renderCompareList("left"));
   rightSearchInput.addEventListener("input", () => renderCompareList("right"));
+  setupCompareScrollSync();
 
   updateModeVisibility();
+  renderPointsBar();
+}
+
+function setupCompareScrollSync() {
+  let syncing = false;
+
+  const syncScroll = (source, target) => {
+    if (syncing) return;
+    syncing = true;
+    target.scrollTop = source.scrollTop;
+    syncing = false;
+  };
+
+  leftSheetWrap.addEventListener("scroll", () => syncScroll(leftSheetWrap, rightSheetWrap));
+  rightSheetWrap.addEventListener("scroll", () => syncScroll(rightSheetWrap, leftSheetWrap));
+}
+
+function handlePointsCountChange() {
+  if (!state.rows.length) {
+    renderPointsBar();
+    return;
+  }
+
+  const count = normalizePointCount();
+  state.pointCuts = buildEvenCuts(state.rows.length, count);
+  renderPointsBar();
+}
+
+function normalizePointCount() {
+  const requested = Number(pointsCountInput.value);
+  let count = Number.isInteger(requested) ? requested : 1;
+  count = Math.max(1, count);
+
+  if (state.rows.length > 1) {
+    count = Math.min(count, state.rows.length - 1);
+  }
+
+  pointsCountInput.value = String(count);
+  return count;
+}
+
+function buildEvenCuts(totalRows, count) {
+  if (totalRows <= 1 || count <= 0) {
+    return [];
+  }
+
+  const maxCuts = Math.min(count, totalRows - 1);
+  const cuts = [];
+  let previous = 0;
+
+  for (let i = 1; i <= maxCuts; i++) {
+    const minAllowed = previous + 1;
+    const maxAllowed = totalRows - (maxCuts - i) - 1;
+    let candidate = Math.round((totalRows * i) / (maxCuts + 1));
+    candidate = Math.max(minAllowed, Math.min(maxAllowed, candidate));
+    cuts.push(candidate);
+    previous = candidate;
+  }
+
+  return cuts;
+}
+
+function sanitizeCuts(cuts, totalRows) {
+  const normalized = [...new Set(
+    cuts
+      .map((value) => Math.round(value))
+      .filter((value) => value >= 1 && value <= totalRows - 1)
+  )].sort((a, b) => a - b);
+
+  const expectedCount = Math.min(normalizePointCount(), Math.max(0, totalRows - 1));
+  if (normalized.length !== expectedCount) {
+    return buildEvenCuts(totalRows, expectedCount);
+  }
+
+  return normalized;
+}
+
+function distributePointsEvenly() {
+  if (!state.rows.length) {
+    return;
+  }
+
+  state.pointCuts = buildEvenCuts(state.rows.length, normalizePointCount());
+  renderPointsBar();
+}
+
+function renderPointsBar() {
+  pointsBar.innerHTML = "";
+  partsCounters.innerHTML = "";
+
+  const totalRows = state.rows.length;
+  if (!totalRows) {
+    splitPointsSummary.textContent = "Partes: 0 | Filas totales: 0";
+    return;
+  }
+
+  state.pointCuts = sanitizeCuts(state.pointCuts, totalRows);
+  const boundaries = [0, ...state.pointCuts, totalRows];
+
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const segment = document.createElement("div");
+    const start = boundaries[i];
+    const end = boundaries[i + 1];
+    segment.className = "points-segment";
+    segment.style.left = `${(start / totalRows) * 100}%`;
+    segment.style.width = `${((end - start) / totalRows) * 100}%`;
+    pointsBar.appendChild(segment);
+  }
+
+  state.pointCuts.forEach((cut, index) => {
+    const left = (cut / totalRows) * 100;
+
+    const label = document.createElement("span");
+    label.className = "point-label";
+    label.style.left = `${left}%`;
+    label.textContent = String(cut);
+
+    const handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "point-handle";
+    handle.style.left = `${left}%`;
+    handle.setAttribute("aria-label", `Punto ${index + 1}, fila ${cut}`);
+    handle.addEventListener("pointerdown", (event) => startPointDrag(event, index));
+
+    pointsBar.appendChild(label);
+    pointsBar.appendChild(handle);
+  });
+
+  renderPartsCounters(boundaries);
+  splitPointsSummary.textContent = `Partes: ${boundaries.length - 1} | Filas totales: ${totalRows}`;
+}
+
+function renderPartsCounters(boundaries) {
+  partsCounters.innerHTML = "";
+
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const start = boundaries[i] + 1;
+    const end = boundaries[i + 1];
+    const size = boundaries[i + 1] - boundaries[i];
+
+    const card = document.createElement("article");
+    card.className = "part-counter";
+
+    const title = document.createElement("strong");
+    title.textContent = `PARTE ${String(i + 1).padStart(2, "0")}`;
+
+    const amount = document.createElement("span");
+    amount.textContent = `${size} fila(s)`;
+
+    const range = document.createElement("small");
+    range.textContent = `Filas ${start} a ${end}`;
+
+    card.appendChild(title);
+    card.appendChild(amount);
+    card.appendChild(range);
+    partsCounters.appendChild(card);
+  }
+}
+
+function startPointDrag(event, index) {
+  if (!state.rows.length) {
+    return;
+  }
+
+  event.preventDefault();
+  pointsDragState.active = true;
+  pointsDragState.index = index;
+
+  window.addEventListener("pointermove", onPointDrag);
+  window.addEventListener("pointerup", stopPointDrag, { once: true });
+  window.addEventListener("pointercancel", stopPointDrag, { once: true });
+}
+
+function onPointDrag(event) {
+  if (!pointsDragState.active || !state.rows.length || state.pointCuts.length === 0) {
+    return;
+  }
+
+  const rect = pointsBar.getBoundingClientRect();
+  if (!rect.width) {
+    return;
+  }
+
+  const index = pointsDragState.index;
+  const totalRows = state.rows.length;
+  const previousLimit = index === 0 ? 1 : state.pointCuts[index - 1] + 1;
+  const nextLimit = index === state.pointCuts.length - 1 ? totalRows - 1 : state.pointCuts[index + 1] - 1;
+
+  let ratio = (event.clientX - rect.left) / rect.width;
+  ratio = Math.max(0, Math.min(1, ratio));
+
+  let row = Math.round(ratio * totalRows);
+  row = Math.max(previousLimit, Math.min(nextLimit, row));
+
+  if (state.pointCuts[index] !== row) {
+    state.pointCuts[index] = row;
+    renderPointsBar();
+  }
+}
+
+function stopPointDrag() {
+  pointsDragState.active = false;
+  pointsDragState.index = -1;
+  window.removeEventListener("pointermove", onPointDrag);
 }
 
 function setupCompareUploader(side) {
@@ -193,36 +421,68 @@ function handleCompareFile(side, file) {
 function renderCompareList(side) {
   const values = state.compare[side].values;
   const queryInput = side === "left" ? leftSearchInput : rightSearchInput;
-  const list = side === "left" ? leftResults : rightResults;
+  const body = side === "left" ? leftSheetBody : rightSheetBody;
   const info = side === "left" ? leftMatchInfo : rightMatchInfo;
+  const stats = side === "left" ? leftStats : rightStats;
   const query = queryInput.value.trim();
   const normalizedQuery = query.toUpperCase();
 
-  const filtered = !normalizedQuery
-    ? values
-    : values.filter((value) => value.toUpperCase().includes(normalizedQuery));
+  const rows = values.map((value, index) => ({
+    rowNumber: index + 1,
+    value
+  }));
 
-  list.innerHTML = "";
+  const filtered = !normalizedQuery
+    ? rows
+    : rows.filter((row) => row.value.toUpperCase().includes(normalizedQuery));
+
+  body.innerHTML = "";
 
   if (!values.length) {
     info.textContent = "0 resultados";
+    stats.textContent = "Filas totales: 0 | Fila final visible: 0";
     return;
   }
 
-  const visible = filtered.slice(0, 500);
-  visible.forEach((value) => {
-    const item = document.createElement("li");
-    appendHighlightedText(item, value, query);
-    list.appendChild(item);
+  const otherSide = side === "left" ? "right" : "left";
+  const otherSet = new Set(state.compare[otherSide].values.map((value) => value.toUpperCase()));
+
+  const visible = filtered.slice(0, 1200);
+  visible.forEach((row) => {
+    const tr = document.createElement("tr");
+
+    const indexCell = document.createElement("td");
+    indexCell.className = "row-index";
+    indexCell.textContent = String(row.rowNumber);
+
+    const valueCell = document.createElement("td");
+    appendHighlightedText(valueCell, row.value, query);
+
+    const commonCell = document.createElement("td");
+    const isCommon = otherSet.has(row.value.toUpperCase());
+    commonCell.textContent = isCommon ? "SI" : "";
+    if (isCommon) {
+      commonCell.classList.add("common-yes");
+    }
+
+    tr.appendChild(indexCell);
+    tr.appendChild(valueCell);
+    tr.appendChild(commonCell);
+    body.appendChild(tr);
   });
 
   if (filtered.length > visible.length) {
-    const extra = document.createElement("li");
-    extra.textContent = `Mostrando ${visible.length} de ${filtered.length} resultados.`;
-    list.appendChild(extra);
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 3;
+    td.textContent = `Mostrando ${visible.length} de ${filtered.length} resultados.`;
+    tr.appendChild(td);
+    body.appendChild(tr);
   }
 
   info.textContent = `${filtered.length} resultado(s) de ${values.length} fila(s)`;
+  const finalVisible = filtered.length ? filtered[filtered.length - 1].rowNumber : 0;
+  stats.textContent = `Filas totales: ${values.length} | Fila final visible: ${finalVisible}`;
 }
 
 function appendHighlightedText(container, text, query) {
@@ -270,14 +530,15 @@ function updateCompareSummary() {
   }
 
   const leftSet = new Set(leftValues.map((value) => value.toUpperCase()));
+  const rightSet = new Set(rightValues.map((value) => value.toUpperCase()));
   let commonCount = 0;
-  rightValues.forEach((value) => {
-    if (leftSet.has(value.toUpperCase())) {
+  leftSet.forEach((value) => {
+    if (rightSet.has(value)) {
       commonCount += 1;
     }
   });
 
-  compareSummary.textContent = `CSV A: ${leftValues.length} filas | CSV B: ${rightValues.length} filas | Coincidencias: ${commonCount}`;
+  compareSummary.textContent = `CSV A: ${leftValues.length} filas (fila final ${leftValues.length}) | CSV B: ${rightValues.length} filas (fila final ${rightValues.length}) | Codigos en comun: ${commonCount}`;
 }
 
 function updateModeVisibility() {
@@ -291,6 +552,11 @@ function updateModeVisibility() {
   rowsMode.classList.toggle("hidden", selected !== "rows");
   partsMode.classList.toggle("hidden", selected !== "parts");
   customTwoMode.classList.toggle("hidden", selected !== "custom-two");
+  pointsMode.classList.toggle("hidden", selected !== "points");
+
+  if (selected === "points") {
+    renderPointsBar();
+  }
 }
 
 function getSelectedMode() {
@@ -335,6 +601,11 @@ function handleFile(file) {
 
       part1RowsInput.value = Math.max(1, Math.floor(rows.length / 2)) || 1;
       part2RowsInput.value = Math.max(1, rows.length - Number(part1RowsInput.value)) || 1;
+      pointsCountInput.max = String(Math.max(1, rows.length - 1));
+      pointsCountInput.disabled = rows.length < 2;
+      evenlyDistributeBtn.disabled = rows.length < 2;
+      state.pointCuts = buildEvenCuts(rows.length, normalizePointCount());
+      renderPointsBar();
     } catch (error) {
       showError("No se pudo leer el archivo. Verifica que sea Excel válido.");
       console.error(error);
@@ -397,6 +668,28 @@ function splitFile() {
     ];
   }
 
+  if (mode === "points") {
+    if (state.rows.length < 2) {
+      showError("Necesitas al menos 2 filas para dividir con puntos.");
+      return;
+    }
+
+    const count = normalizePointCount();
+    state.pointCuts = sanitizeCuts(state.pointCuts, state.rows.length);
+
+    if (state.pointCuts.length !== count) {
+      state.pointCuts = buildEvenCuts(state.rows.length, count);
+    }
+
+    if (!state.pointCuts.length) {
+      showError("No se pudieron generar cortes válidos para dividir.");
+      return;
+    }
+
+    parts = splitByCutPoints(state.rows, state.pointCuts);
+    renderPointsBar();
+  }
+
   state.parts = parts.map((rows, index) => ({
     rows,
     index: index + 1,
@@ -429,6 +722,19 @@ function splitByPartCount(rows, count) {
   }
 
   return result;
+}
+
+function splitByCutPoints(rows, cuts) {
+  const result = [];
+  let start = 0;
+
+  cuts.forEach((cut) => {
+    result.push(rows.slice(start, cut));
+    start = cut;
+  });
+
+  result.push(rows.slice(start));
+  return result.filter((chunk) => chunk.length > 0);
 }
 
 function renderResults() {
@@ -530,6 +836,7 @@ function resetState() {
   state.rows = [];
   state.fileBaseName = "ARCHIVO";
   state.parts = [];
+  state.pointCuts = [];
 
   excelInput.value = "";
   fileInfo.textContent = "";
@@ -537,5 +844,10 @@ function resetState() {
   configPanel.classList.add("hidden");
   resultPanel.classList.add("hidden");
   partsList.innerHTML = "";
+  pointsCountInput.value = "2";
+  pointsCountInput.max = "9999";
+  pointsCountInput.disabled = false;
+  evenlyDistributeBtn.disabled = false;
+  renderPointsBar();
   clearMessage();
 }

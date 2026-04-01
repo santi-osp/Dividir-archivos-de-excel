@@ -50,6 +50,12 @@
           <strong>2 partes personalizadas</strong>
           <span>Define N filas para parte 1 y N filas para parte 2.</span>
         </label>
+
+        <label class="mode-card">
+          <input type="radio" name="splitMode" value="points" />
+          <strong>Barra con puntos</strong>
+          <span>Arrastra puntos y define tamaños por distancia.</span>
+        </label>
       </div>
 
       <div id="rowsMode" class="mode-fields">
@@ -70,6 +76,20 @@
         <div>
           <label for="part2Rows">Filas parte 2</label>
           <input id="part2Rows" type="number" min="1" value="100" />
+        </div>
+      </div>
+
+      <div id="pointsMode" class="mode-fields hidden">
+        <label for="pointsCount">Cantidad de puntos de corte</label>
+        <input id="pointsCount" type="number" min="1" value="2" />
+
+        <div class="split-points-panel">
+          <div class="split-points-head">
+            <strong id="splitPointsSummary">Partes: 0 | Filas totales: 0</strong>
+            <button id="evenlyDistributeBtn" type="button" class="btn btn-ghost btn-sm">Distribuir parejo</button>
+          </div>
+          <div id="pointsBar" class="points-bar" role="application" aria-label="Barra de división por puntos"></div>
+          <div id="partsCounters" class="parts-counters"></div>
         </div>
       </div>
 
@@ -95,7 +115,7 @@
       <div class="compare-summary" id="compareSummary">Carga ambos archivos para ver coincidencias.</div>
 
       <div class="compare-grid">
-        <article class="compare-side">
+        <article class="compare-side compare-side-left">
           <h3>CSV A</h3>
           <div id="leftDropZone" class="drop-zone small" role="button" tabindex="0" aria-label="Subir CSV A">
             <input id="leftCsvInput" type="file" accept=".csv" hidden />
@@ -106,10 +126,22 @@
           <label for="leftSearchInput">Buscar código en CSV A</label>
           <input id="leftSearchInput" type="text" placeholder="Ej: 123456" />
           <div id="leftMatchInfo" class="match-info">0 resultados</div>
-          <ul id="leftResults" class="result-list"></ul>
+          <div id="leftStats" class="sheet-stats">Filas totales: 0 | Fila final visible: 0</div>
+          <div id="leftSheetWrap" class="sheet-wrap">
+            <table class="sheet-table" aria-label="Tabla CSV A">
+              <thead>
+                <tr>
+                  <th class="col-index">#</th>
+                  <th class="col-code">CODIGO</th>
+                  <th class="col-common">EN COMUN</th>
+                </tr>
+              </thead>
+              <tbody id="leftSheetBody"></tbody>
+            </table>
+          </div>
         </article>
 
-        <article class="compare-side">
+        <article class="compare-side compare-side-right">
           <h3>CSV B</h3>
           <div id="rightDropZone" class="drop-zone small" role="button" tabindex="0" aria-label="Subir CSV B">
             <input id="rightCsvInput" type="file" accept=".csv" hidden />
@@ -120,7 +152,19 @@
           <label for="rightSearchInput">Buscar código en CSV B</label>
           <input id="rightSearchInput" type="text" placeholder="Ej: 123456" />
           <div id="rightMatchInfo" class="match-info">0 resultados</div>
-          <ul id="rightResults" class="result-list"></ul>
+          <div id="rightStats" class="sheet-stats">Filas totales: 0 | Fila final visible: 0</div>
+          <div id="rightSheetWrap" class="sheet-wrap">
+            <table class="sheet-table" aria-label="Tabla CSV B">
+              <thead>
+                <tr>
+                  <th class="col-index">#</th>
+                  <th class="col-code">CODIGO</th>
+                  <th class="col-common">EN COMUN</th>
+                </tr>
+              </thead>
+              <tbody id="rightSheetBody"></tbody>
+            </table>
+          </div>
         </article>
       </div>
     </section>
@@ -129,6 +173,6 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=6"></script>
 </body>
 </html>
